@@ -1,0 +1,42 @@
+Package: sacr
+Type: Package
+Title: Functions for processing and analysing river turtle management
+Version: 0.1.0
+Author: Darren Norris [cre, aut]
+Maintainer: Darren Norris <dnorris75@gmail.com>
+Description: Provides functions for the demographic analysis of 
+    river turtle management options. 
+    Functions are organized by name in three groups: 
+    "prep.." , "Pop..." and "res..." .
+    "prep.." are functions used to generate spatial layers 
+    (vector and raster files), with countries, catchments, rivers,
+    protected areas and human accessibility.
+    "Pop..." are functions used for modelling population demographics.
+    "res..." are functions used to generate results, 
+    producing tables and figures.
+Imports: dplyr,
+    ggplot2,
+    gridExtra,
+    grDevices,
+    htmlTable,
+    lwgeom,
+    magrittr,
+    methods,
+    plyr,
+    popdemo,
+    popbio,
+    raster,
+    reshape2,
+    rnaturalearth,
+    rnaturalearthdata,
+    RPostgreSQL,
+    sf,
+    sp,
+    stats,
+    tidyr,
+    units,
+    viridis
+License: file LICENSE
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.1
