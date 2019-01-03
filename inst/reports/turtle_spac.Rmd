@@ -1,0 +1,232 @@
+---
+title: "Turtle Action Plan"
+subtitle: <h1>V 0.1<h1>
+author: Dr. Darren Norris (<dnorris75@gmail.com>)
+date: "2 de janeiro de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+f1 <- system.file("logos/lecov_logo.png" ,package = "sacr")
+htmltools::img(src = knitr::image_uri(f1), 
+               width = 180,
+               height = 120,
+               alt = 'logo', 
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+```
+
+```{r, echo=FALSE}
+f2 <- system.file("logos/UNIFAP.jpg" ,package = "sacr")
+htmltools::img(src = knitr::image_uri(f2), 
+               width = 70,
+               height = 120,
+               alt = 'logo', 
+               style = 'position:absolute; top:0; right:1; padding:10px;')
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# general point based estimates
+# create look up tables with projections
+dfpop <- cmartr::PopParam(species = "Podocnemis unifilis", make_rds = FALSE)
+library(plyr)
+dff <- ddply(dfpop, .(akey), .fun = sacr::PopProjF)
+# limit final to 10 * original
+sel50 <- which(dff$ayear == max(dff$ayear))
+dffinal <- dff[sel50, ]
+dffinal$adult_females_clean <- ifelse(dffinal$adult_females > (10*dffinal$fem_t0), 
+                                      10*dffinal$fem_t0, dffinal$adult_females)
+
+dffinal$adult_female_diff_clean <- ifelse(dffinal$adult_females > (10*dffinal$fem_t0), 
+                                          9, dffinal$adult_female_diff)
+# load shapefiles
+library(sf)
+inshp <- system.file("shape/apriver.shp" ,package = "sacr")
+s1 <- read_sf(inshp)
+s1$fa_t0 <- 10
+# intersect with Amapa to get ottobacias and municipios
+# ottobacias cover more so intersect with Amapa municipios, then points
+inshp2 <- system.file("shape/ap_municipios.shp" ,package = "sacr")
+s2 <- read_sf(inshp2)
+#plot(s2["NOME_MUNI"])
+inshp3 <- system.file("shape/ottobacias_ap.shp" ,package = "sacr")
+s3 <- read_sf(inshp3)
+#plot(s3["NIVEL33"])
+sint <- st_intersection(s2, s3)
+#plot(sint["NIVEL33"])
+inshp4 <- system.file("shape/ottobacias_ap_03.shp" ,package = "sacr")
+s4 <- read_sf(inshp4)
+
+s1 <- st_intersection(s1, s3)
+
+# now add projecton value to each point, based on three scenarios
+#Business-As-Usual
+# column for new values
+s1$fa_bau <- NA
+#select relevant rates for scenario
+selBAUin <- which(dffinal$hunt==0 & dffinal$increase == 0.2)
+selBAUacc <- which(dffinal$hunt==10 & dffinal$increase == 0.1)
+# select points with criteria
+selin <- which(s1$accessible=="No")
+# add population projection values for scenario
+#inaccessible at base rate
+s1[selin, 'fa_bau'] <- dffinal[selBAUin, 'adult_females_clean']
+#accessible with hunting and nest removal
+s1[-selin, 'fa_bau'] <- dffinal[selBAUacc, 'adult_females_clean']
+
+#Protection
+# column for new values
+s1$fa_pr <- NA
+#select relevant rates for scenario
+selPrPA <- which(dffinal$hunt==0 & dffinal$increase == 0.2)
+selPrNPAacc <- which(dffinal$hunt==10 & dffinal$increase == 0.1)
+# select points with criteria
+selin <- which(s1$accessible=="No")
+selaccPA <- which(s1$accessible=="Yes" & s1$All==1)
+selaccNPA <- which(s1$accessible=="Yes" & s1$All==0)
+# add population projection values for scenario
+#inaccessible at base rate
+s1[selin, 'fa_pr'] <- dffinal[selPrPA, 'adult_females_clean']
+#accessible and protected at base rate
+s1[selaccPA, 'fa_pr'] <- dffinal[selPrPA, 'adult_females_clean']
+##accessible and not protected with hunting and nest removal
+s1[selaccNPA, 'fa_pr'] <- dffinal[selPrNPAacc, 'adult_females_clean']
+
+#Community-Based-Management
+# column for new values
+s1$fa_cbm <- NA
+#select relevant rates for scenario
+selCBMin <- which(dffinal$hunt==0 & dffinal$increase == 0.2)
+selCBMNPAacc <- which(dffinal$hunt==10 & dffinal$increase == 0.5)
+selCBMPAacc <- which(dffinal$hunt==10 & dffinal$increase == 0.1)
+# select points with criteria
+selin <- which(s1$accessible=="No")
+selaccPA <- which(s1$accessible=="Yes" & s1$All==1)
+selaccNPA <- which(s1$accessible=="Yes" & s1$All==0)
+# add population projection values for scenario
+#inaccessible at base rate
+s1[selin, 'fa_cbm'] <- dffinal[selCBMin, 'adult_females_clean']
+#accessible and protected at base rate (hunting and nest removal)
+s1[selaccPA, 'fa_cbm'] <- dffinal[selCBMPAacc, 'adult_females_clean']
+##accessible and not protected with headstart and hunting
+s1[selaccNPA, 'fa_cbm'] <- dffinal[selCBMNPAacc, 'adult_females_clean']
+
+# Pr and CBM
+# column for new values
+s1$fa_cbmpr <- NA
+#select relevant rates for scenario
+selCBMprin <- which(dffinal$hunt==0 & dffinal$increase == 0.2)
+selCBMprNPAacc <- which(dffinal$hunt==10 & dffinal$increase == 0.5)
+selCBMprPAacc <- which(dffinal$hunt==0 & dffinal$increase == 0.2)
+# select points with criteria
+selin <- which(s1$accessible=="No")
+selaccPA <- which(s1$accessible=="Yes" & s1$All==1)
+selaccNPA <- which(s1$accessible=="Yes" & s1$All==0)
+# add population projection values for scenario
+#inaccessible at base rate
+s1[selin, 'fa_cbmpr'] <- dffinal[selCBMprin, 'adult_females_clean']
+#accessible and protected at base rate (hunting and nest removal)
+s1[selaccPA, 'fa_cbmpr'] <- dffinal[selCBMprPAacc, 'adult_females_clean']
+##accessible and not protected with headstart and hunting
+s1[selaccNPA, 'fa_cbmpr'] <- dffinal[selCBMprNPAacc, 'adult_females_clean']
+
+# diff
+library(plyr)
+dfn3 <- ddply(s1, .(NIVEL33), summarise, 
+      km_tot = length(na.omit(fa_cbm)), 
+      km_pa = sum(na.omit(All)),
+      fa_t0_tot = sum(na.omit(fa_t0)),
+      fa_bau_diff = (sum(na.omit(fa_bau)) - sum(na.omit(fa_t0))) / sum(na.omit(fa_t0)),
+      fa_pr_diff = (sum(na.omit(fa_pr))- sum(na.omit(fa_t0))) / sum(na.omit(fa_t0)),
+      fa_cbm_diff = (sum(na.omit(fa_cbm))- sum(na.omit(fa_t0))) / sum(na.omit(fa_t0)), 
+      fa_cbmpr_diff = (sum(na.omit(fa_cbmpr))- sum(na.omit(fa_t0))) / sum(na.omit(fa_t0))
+)
+
+sint2 <- merge(sint, dfn3)
+
+```
+
+<style type="text/css">
+h1 {text-align:center;}
+h1.title {
+  font-size: 38px;
+  color: Black;
+  text-align: center;
+}
+h2.subtitle {
+  font-size: 28px;
+  color: Black;
+  text-align: center;
+}
+h4.author { /* Header 4 - and the author and data headers use this too  */
+    font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: Black;
+  text-align: center;
+}
+h4.date { /* Header 4 - and the author and data headers use this too  */
+  font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+  text-align: center;
+}
+</style>
+
+
+## H2 Header
+
+Some body text
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+## plots
+sfap <- st_union(st_buffer(sint2, 0.00001))
+sfapn3 <-st_intersection(s4, sfap)
+library(ggplot2)
+#Ottobacias. Need to drop to make sure match data
+selOt <- which(sint2$NIVEL33 %in% unique(dfn3$NIVEL33))
+
+```
+
+```{r, echo=FALSE}
+ggplot(sint2[selOt, ]) +
+  #geom_sf(data = sfcounD) +
+  geom_sf(aes(fill = NIVEL33) ) +
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
+  geom_sf(data = sfap, size=1,color="black", fill=NA) +
+  #geom_sf(data = sfap, size=1,color="yellow", fill=NA, lty=2) +
+  scale_fill_discrete("Ottobacia\nNivel 3") +
+  coord_sf(xlim = c(-54.8, -49.8), ylim = c(-1.2, 4.3))+
+  #scale_x_continuous(breaks = xbr) +
+  #scale_y_continuous(breaks = ybr) +
+  theme_bw() +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ggtitle("A) Ottobacias")
+```
+
+
+## H2 Header
+
+More body text
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

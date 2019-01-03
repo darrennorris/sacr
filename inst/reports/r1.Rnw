@@ -1,0 +1,28 @@
+\documentclass{article}
+
+\begin{document}
+
+My awesome \LaTeX test
+
+Some R code 
+<<>>=
+a <- 52
+b = 567
+hello_txt <- "Hello world" # just to illustrate the markup
+@
+Now to show inline....
+\Sexpr{hello_txt}
+
+I've now created two variables, one with the value \Sexpr{a} and the other with \Sexpr{b}.
+
+I've used two different assignment operators: 
+
+\begin{description}
+  \item[$<-$]
+  \item[$=$]
+\end{description}
+
+The $<-$ is preferred because it gives a natural understanding of assignment since the $<-$ looks like an arrow while $=$ can be confused with equal (that usually is represented by two equal signs "$==$"). 
+
+Thats all!
+\end{document}
