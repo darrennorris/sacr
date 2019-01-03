@@ -795,61 +795,6 @@ min(dfl$lambda_min); max(dfl$lambda_max)
 
 
 #27/12/2018
-# general point based estimates
-# create look up tables with projections
-dfpop <- cmartr::PopParam(species = "Podocnemis unifilis", make_rds = FALSE)
-PopProjF <- function(x, fed = 10){
-vpop <- unlist(x[ ,4:19])
-tracaja <- matrix(vpop, byrow = TRUE, ncol=4)
-dimnames(tracaja) <- list(c("a", "b", "c", "d"),
-                          c(1,2,3,4))
-adultF.d <- fed # adult female density per river km
-dist_km <- 1
-adultF.n <- trunc(adultF.d * dist_km)
-tracaja_n <-  adultF.n * c(11.1, 4, 2, 1) 
-
-# project PPM 
-pr_tracaja <- popdemo::project(tracaja, vector=tracaja_n, time=50)
-# data for plotting
-len <- length(pr_tracaja)
-Time.intervals <- 0:(len - 1)
-eggs <- as.integer(trunc(pr_tracaja * (popbio::stable.stage(tracaja)[1])))
-eju <- as.integer(trunc(pr_tracaja * (popbio::stable.stage(tracaja)[2])))
-lju <- as.integer(trunc(pr_tracaja * (popbio::stable.stage(tracaja)[3])))
-ad.fe <- as.integer(trunc(pr_tracaja * (popbio::stable.stage(tracaja)[4])))
-plambda = popbio::lambda(tracaja)
-
-# make dataframe 
-dfout <- data.frame(lambda = plambda,
-                    ayear = Time.intervals, 
-                    individuals = as.integer(trunc(pr_tracaja)),
-                    ss_egghatchling = round(as.numeric(popbio::stable.stage(tracaja)[1]),3),
-                    ss_earlyjuven = round(as.numeric(popbio::stable.stage(tracaja)[2]),3),
-                    ss_latejuven = round(as.numeric(popbio::stable.stage(tracaja)[3]),3),
-                    ss_adultfemale = round(as.numeric(popbio::stable.stage(tracaja)[4]),3),
-                    egghatch = eggs,
-                    early_juven = eju,
-                    late_juven = lju,
-                    adult_females = ad.fe
-)
-fem0 <- adultF.n
-dft <- data.frame(species = x$species, hunt = x$type, 
-                  increase = x$increase, dfout, fem_t0 = fem0)
-dft$adult_female_diff <- round(((dft$adult_females - dft$fem_t0) / dft$fem_t0), 3)
-dft$change50_flag <- as.integer(ifelse(abs(dft$adult_female_diff) > 0.499, 1, 0))
-dft$double_flag <- as.integer(ifelse(dft$adult_female_diff > 0.999, 1, 0))
-dft
-}
-library(plyr)
-dff <- ddply(dfpop, .(akey), .fun = PopProjF)
-# limit final to 10 * original
-sel50 <- which(dff$ayear == max(dff$ayear))
-dffinal <- dff[sel50, ]
-dffinal$adult_females_clean <- ifelse(dffinal$adult_females > (10*dffinal$fem_t0), 
-                                      10*dffinal$fem_t0, dffinal$adult_females)
-
-dffinal$adult_female_diff_clean <- ifelse(dffinal$adult_females > (10*dffinal$fem_t0), 
-                                      9, dffinal$adult_female_diff)
 # now acessibility
 # from resTab.R
 rp <- system.file("shape/shapes_rivers3395", package="cmartr")
@@ -936,115 +881,131 @@ mgt <- function(x){
 }
 plyr::a_ply(myfiles, .margins = 1, .fun = mgt)
 
+
+# general point based estimates
+# create look up tables with projections
+dfpop <- cmartr::PopParam(species = "Podocnemis unifilis", make_rds = FALSE)
+library(plyr)
+dff <- ddply(dfpop, .(akey), .fun = sacr::PopProjF)
+# limit final to 10 * original
+sel50 <- which(dff$ayear == max(dff$ayear))
+dffinal <- dff[sel50, ]
+dffinal$adult_females_clean <- ifelse(dffinal$adult_females > (10*dffinal$fem_t0), 
+                                      10*dffinal$fem_t0, dffinal$adult_females)
+
+dffinal$adult_female_diff_clean <- ifelse(dffinal$adult_females > (10*dffinal$fem_t0), 
+                                          9, dffinal$adult_female_diff)
 library(sf)
-inshp <- "C:/Users/Darren/Documents/2018 Unifilis demography/analysis/shapes/apriver.shp"
-s2 <- read_sf(inshp)
-s2$fa_t0 <- 10
-plot(s2["All"])
+inshp <- system.file("shape/apriver.shp" ,package = "sacr")
+s1 <- read_sf(inshp)
+s1$fa_t0 <- 10
+plot(s1["All"])
 
 # intersect with Amapa to get ottobacias and municipios
 # ottobacias cover more so intersect with Amapa municipios, then points
-inshp2 <- "C:/Users/Darren/Documents/2018 Unifilis demography/analysis/ap_municipios.shp"
-s3 <- read_sf(inshp2)
-inshp3 <- "C:/Users/Darren/Documents/2018 Unifilis demography/analysis/shapes/ottobacias_ap.shp"
-s4 <- read_sf(inshp3)
-sint <- st_intersection(s3, s4)
+inshp2 <- system.file("shape/ap_municipios.shp" ,package = "sacr")
+s2 <- read_sf(inshp2)
+plot(s2["NOME_MUNI"])
+inshp3 <- system.file("shape/ottobacias_ap.shp" ,package = "sacr")
+s3 <- read_sf(inshp3)
+plot(s3["NIVEL33"])
+sint <- st_intersection(s2, s3)
 plot(sint["NIVEL33"])
 
-inshp4 <- "C:/Users/Darren/Documents/2018 Unifilis demography/analysis/shapes/ottobacias_ap_03.shp"
-s5 <- read_sf(inshp4)
+inshp4 <- system.file("shape/ottobacias_ap_03.shp" ,package = "sacr")
+s4 <- read_sf(inshp4)
 
-s2 <- st_intersection(s2, s4)
-table(s2$BACIA_DN9)
+s1 <- st_intersection(s1, s3)
+table(s1$BACIA_DN9)
 # now add projecton value to each point, based on three scenarios
 #Business-As-Usual
 # column for new values
-s2$fa_bau <- NA
+s1$fa_bau <- NA
 #select relevant rates for scenario
 selBAUin <- which(dffinal$hunt==0 & dffinal$increase == 0.2)
 selBAUacc <- which(dffinal$hunt==10 & dffinal$increase == 0.1)
 # select points with criteria
-selin <- which(s2$accessible=="No")
+selin <- which(s1$accessible=="No")
 # add population projection values for scenario
 #inaccessible at base rate
-s2[selin, 'fa_bau'] <- dffinal[selBAUin, 'adult_females_clean']
+s1[selin, 'fa_bau'] <- dffinal[selBAUin, 'adult_females_clean']
 #accessible with hunting and nest removal
-s2[-selin, 'fa_bau'] <- dffinal[selBAUacc, 'adult_females_clean']
-summary(s2$fa_bau)
-plot(s2["fa_bau"])
-table(s2$fa_bau)
+s1[-selin, 'fa_bau'] <- dffinal[selBAUacc, 'adult_females_clean']
+summary(s1$fa_bau)
+plot(s1["fa_bau"])
+table(s1$fa_bau)
 #Protection
 # column for new values
-s2$fa_pr <- NA
+s1$fa_pr <- NA
 #select relevant rates for scenario
 selPrPA <- which(dffinal$hunt==0 & dffinal$increase == 0.2)
 selPrNPAacc <- which(dffinal$hunt==10 & dffinal$increase == 0.1)
 # select points with criteria
-selin <- which(s2$accessible=="No")
-selaccPA <- which(s2$accessible=="Yes" & s2$All==1)
-selaccNPA <- which(s2$accessible=="Yes" & s2$All==0)
+selin <- which(s1$accessible=="No")
+selaccPA <- which(s1$accessible=="Yes" & s1$All==1)
+selaccNPA <- which(s1$accessible=="Yes" & s1$All==0)
 # add population projection values for scenario
 #inaccessible at base rate
-s2[selin, 'fa_pr'] <- dffinal[selPrPA, 'adult_females_clean']
+s1[selin, 'fa_pr'] <- dffinal[selPrPA, 'adult_females_clean']
 #accessible and protected at base rate
-s2[selaccPA, 'fa_pr'] <- dffinal[selPrPA, 'adult_females_clean']
+s1[selaccPA, 'fa_pr'] <- dffinal[selPrPA, 'adult_females_clean']
 ##accessible and not protected with hunting and nest removal
-s2[selaccNPA, 'fa_pr'] <- dffinal[selPrNPAacc, 'adult_females_clean']
-summary(s2$fa_pr)
-plot(s2["fa_pr"])
-table(s2$fa_bau)
-table(s2$All)
-table(s2$accessible)
+s1[selaccNPA, 'fa_pr'] <- dffinal[selPrNPAacc, 'adult_females_clean']
+summary(s1$fa_pr)
+plot(s1["fa_pr"])
+table(s1$fa_bau)
+table(s1$All)
+table(s1$accessible)
 
 #Community-Based-Management
 # column for new values
-s2$fa_cbm <- NA
+s1$fa_cbm <- NA
 #select relevant rates for scenario
 selCBMin <- which(dffinal$hunt==0 & dffinal$increase == 0.2)
 selCBMNPAacc <- which(dffinal$hunt==10 & dffinal$increase == 0.5)
 selCBMPAacc <- which(dffinal$hunt==10 & dffinal$increase == 0.1)
 # select points with criteria
-selin <- which(s2$accessible=="No")
-selaccPA <- which(s2$accessible=="Yes" & s2$All==1)
-selaccNPA <- which(s2$accessible=="Yes" & s2$All==0)
+selin <- which(s1$accessible=="No")
+selaccPA <- which(s1$accessible=="Yes" & s1$All==1)
+selaccNPA <- which(s1$accessible=="Yes" & s1$All==0)
 # add population projection values for scenario
 #inaccessible at base rate
-s2[selin, 'fa_cbm'] <- dffinal[selCBMin, 'adult_females_clean']
+s1[selin, 'fa_cbm'] <- dffinal[selCBMin, 'adult_females_clean']
 #accessible and protected at base rate (hunting and nest removal)
-s2[selaccPA, 'fa_cbm'] <- dffinal[selCBMPAacc, 'adult_females_clean']
+s1[selaccPA, 'fa_cbm'] <- dffinal[selCBMPAacc, 'adult_females_clean']
 ##accessible and not protected with headstart and hunting
-s2[selaccNPA, 'fa_cbm'] <- dffinal[selCBMNPAacc, 'adult_females_clean']
-summary(s2$fa_cbm)
-plot(s2["fa_cbm"])
-table(s2$fa_cbm)
-table(s2$accessible)
+s1[selaccNPA, 'fa_cbm'] <- dffinal[selCBMNPAacc, 'adult_females_clean']
+summary(s1$fa_cbm)
+plot(s1["fa_cbm"])
+table(s1$fa_cbm)
+table(s1$accessible)
 
 # Pr and CBM
 # column for new values
-s2$fa_cbmpr <- NA
+s1$fa_cbmpr <- NA
 #select relevant rates for scenario
 selCBMprin <- which(dffinal$hunt==0 & dffinal$increase == 0.2)
 selCBMprNPAacc <- which(dffinal$hunt==10 & dffinal$increase == 0.5)
 selCBMprPAacc <- which(dffinal$hunt==0 & dffinal$increase == 0.2)
 # select points with criteria
-selin <- which(s2$accessible=="No")
-selaccPA <- which(s2$accessible=="Yes" & s2$All==1)
-selaccNPA <- which(s2$accessible=="Yes" & s2$All==0)
+selin <- which(s1$accessible=="No")
+selaccPA <- which(s1$accessible=="Yes" & s1$All==1)
+selaccNPA <- which(s1$accessible=="Yes" & s1$All==0)
 # add population projection values for scenario
 #inaccessible at base rate
-s2[selin, 'fa_cbmpr'] <- dffinal[selCBMprin, 'adult_females_clean']
+s1[selin, 'fa_cbmpr'] <- dffinal[selCBMprin, 'adult_females_clean']
 #accessible and protected at base rate (hunting and nest removal)
-s2[selaccPA, 'fa_cbmpr'] <- dffinal[selCBMprPAacc, 'adult_females_clean']
+s1[selaccPA, 'fa_cbmpr'] <- dffinal[selCBMprPAacc, 'adult_females_clean']
 ##accessible and not protected with headstart and hunting
-s2[selaccNPA, 'fa_cbmpr'] <- dffinal[selCBMprNPAacc, 'adult_females_clean']
-summary(s2$fa_cbmpr)
-plot(s2["fa_cbmpr"])
-table(s2$fa_cbmpr)
+s1[selaccNPA, 'fa_cbmpr'] <- dffinal[selCBMprNPAacc, 'adult_females_clean']
+summary(s1$fa_cbmpr)
+plot(s1["fa_cbmpr"])
+table(s1$fa_cbmpr)
 
 #total and proportional difference per catchments
-plot(s2["subbasn"])
+plot(s1["subbasn"])
 library(plyr)
-ddply(s2, .(subbasn), summarise, 
+ddply(s1, .(subbasn), summarise, 
       km_tot = length(na.omit(fa_cbm)), 
       km_pa = sum(na.omit(All)),
       fa_t0_tot = sum(na.omit(fa_t0)),
@@ -1054,7 +1015,7 @@ ddply(s2, .(subbasn), summarise,
       fa_cbmpr_tot = sum(na.omit(fa_cbmpr))
       )
 # diff
-ddply(s2, .(subbasn), summarise, 
+ddply(s1, .(subbasn), summarise, 
       km_tot = length(na.omit(fa_cbm)), 
       km_pa = sum(na.omit(All)),
       fa_t0_tot = sum(na.omit(fa_t0)),
@@ -1063,8 +1024,8 @@ ddply(s2, .(subbasn), summarise,
       fa_cbm_diff = (sum(na.omit(fa_cbm))- sum(na.omit(fa_t0))) / sum(na.omit(fa_t0)), 
       fa_cbmpr_diff = (sum(na.omit(fa_cbmpr))- sum(na.omit(fa_t0))) / sum(na.omit(fa_t0))
 )
-length(unique(s2$NIVEL33))
-ddply(s2, .(NIVEL33), summarise, 
+length(unique(s1$NIVEL33))
+ddply(s1, .(NIVEL33), summarise, 
       km_tot = length(na.omit(fa_cbm)), 
       km_pa = sum(na.omit(All)),
       fa_t0_tot = sum(na.omit(fa_t0)),
@@ -1074,7 +1035,7 @@ ddply(s2, .(NIVEL33), summarise,
       fa_cbmpr_tot = sum(na.omit(fa_cbmpr))
 )
 # diff
-dfn3 <- ddply(s2, .(NIVEL33), summarise, 
+dfn3 <- ddply(s1, .(NIVEL33), summarise, 
       km_tot = length(na.omit(fa_cbm)), 
       km_pa = sum(na.omit(All)),
       fa_t0_tot = sum(na.omit(fa_t0)),
@@ -1088,18 +1049,9 @@ sint2 <- merge(sint, dfn3)
 plot(sint2["fa_pr_diff"])
 
 ## plots
-sfcoun<- rnaturalearth::ne_countries(continent = "South America", 
-                                     type = 'map_units', returnclass = "sf")
-sfcoun <- st_sf(a= rep(1,14), geom=st_geometry(sfcoun))
-sfcounD <- sf::st_union(rnaturalearth::ne_countries(continent = "South America", 
-                                                    type = 'map_units', returnclass = "sf"))
-sfcounD <- st_sf(a=1, geom=st_geometry(sfcounD))
-
 sfap <- st_union(st_buffer(sint2, 0.00001))
-sfapn3 <-st_intersection(s5, sfap)
+sfapn3 <-st_intersection(s4, sfap)
 library(ggplot2)
-xbr = c(-80, -70, -60, -50)
-ybr = c(-20, -10, -0, 10)
 
 #Ottobacias. Need to drop to make sure match data
 selOt <- which(sint2$NIVEL33 %in% unique(dfn3$NIVEL33))
@@ -1122,13 +1074,11 @@ ggplot(sint2[selOt, ]) +
 ggplot(sint2) +
   #geom_sf(data = sfcounD) +
   geom_sf(aes(fill = fa_bau_diff) ) +
-  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) + 
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
   geom_sf(data = sfap, size=1,color="black", fill=NA) +
-  geom_sf(data = sfap, size=1,color="yellow", fill=NA, lty=2) +
   scale_fill_gradient2("%\nchange") +
   coord_sf(xlim = c(-54.8, -49.8), ylim = c(-1.2, 4.3))+
-  #scale_x_continuous(breaks = xbr) +
-  #scale_y_continuous(breaks = ybr) +
   theme_bw() +
   theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
   ggtitle("A) Business-As-Usual")
