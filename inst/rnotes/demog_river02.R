@@ -1070,6 +1070,63 @@ ggplot(sint2[selOt, ]) +
   theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
   ggtitle("A) Ottobacias")
 
+# accessibility and protected areas
+library(raster)
+library(sf)
+p4 <- "+proj=merc +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
+sp1 <- as(st_transform(sfap, p4), 'Spatial')
+extent(sp1)[1]
+inraster <- system.file("raster/uas.grd" ,package = "cmartr")
+rst <- raster::brick(inraster)
+rst <- crop(rst, sp1, snap = "out") 
+rst <- rst[["Dist..km."]]
+# proj.4 projection description
+newproj <- "+proj=longlat +datum=WGS84 +no_defs"
+pr1 <- raster::projectRaster(rst, crs=newproj, res = 0.00930)
+# convert to points hack
+myPoints <- raster::rasterToPoints(pr1)
+myDataFrame <- data.frame(myPoints)
+names(myDataFrame)
+colnames(myDataFrame) <- c("X", "Y", "Values")
+rm("rst")
+rm("pr1")
+
+ggplot(sfap) + 
+  geom_sf(data = sfap) +
+  geom_raster(data=myDataFrame, aes(y = Y, x = X, fill = Values)) +
+  scale_fill_gradient(name = "Dist (km)", 
+                      low = "white", high = "blue") +
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
+  geom_sf(data = sfap, size=1,color="black", fill=NA) +
+  theme_bw()
+
+# simpler to take summary from points
+library(plyr)
+sint2 <- merge(sint2, 
+               ddply(s1, .(NIVEL33), summarize, 
+                     r_km = length(na.omit(acc)), 
+                     acc_prop = sum(na.omit(acc)) / length(na.omit(acc)), 
+               pa_per = (sum(na.omit(All)) / length(na.omit(fa_cbm))) * 100 
+               )
+)
+
+ggplot(sint2[selOt, ]) +
+  #geom_sf(data = sfcounD) +
+  geom_sf(aes(fill = pa_per) ) +
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
+  geom_sf(data = sfap, size=1,color="black", fill=NA) +
+  scale_fill_gradientn("%\nProteçao", 
+                       colours = c("darkred","tomato1", 
+                                   "orange","yellow", 
+                                   "lightblue","darkblue"), 
+                       values = c(0, 0.11, 0.111, 0.54,0.541, 1)) +
+  coord_sf(xlim = c(-54.8, -49.8), ylim = c(-1.2, 4.3))+
+  theme_bw() +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ggtitle("A) Proteçao por Ottobacia")
+
 #BAU
 ggplot(sint2) +
   #geom_sf(data = sfcounD) +
@@ -1085,7 +1142,9 @@ ggplot(sint2) +
 
 ggplot(dfn3, aes(x = NIVEL33, y = fa_bau_diff, fill = fa_bau_diff)) + 
   geom_col() + 
-  scale_fill_gradient2("%\nchange")
+  coord_cartesian(ylim = c(-1,2)) +
+  scale_fill_gradient2("%\nchange") +
+  ylab("Taxa de Mudança") + xlab("Ottobacia")
 
 ggplot(sint2) +
   #geom_sf(data = sfcounD) +

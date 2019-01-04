@@ -3,7 +3,8 @@ title: "Turtle Action Plan"
 subtitle: <h1>V 0.1<h1>
 author: Dr. Darren Norris (<dnorris75@gmail.com>)
 date: "2 de janeiro de 2019"
-output: html_document
+output: html_document 
+fig_caption: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -47,6 +48,7 @@ library(sf)
 inshp <- system.file("shape/apriver.shp" ,package = "sacr")
 s1 <- read_sf(inshp)
 s1$fa_t0 <- 10
+s1$acc <- ifelse(s1$accessible=="Yes", 1, 0)
 # intersect with Amapa to get ottobacias and municipios
 # ottobacias cover more so intersect with Amapa municipios, then points
 inshp2 <- system.file("shape/ap_municipios.shp" ,package = "sacr")
@@ -138,6 +140,8 @@ library(plyr)
 dfn3 <- ddply(s1, .(NIVEL33), summarise, 
       km_tot = length(na.omit(fa_cbm)), 
       km_pa = sum(na.omit(All)),
+      pa_per = (sum(na.omit(All)) / length(na.omit(fa_cbm))) * 100,
+      acc_per = (sum(na.omit(acc)) / length(na.omit(acc))) * 100,
       fa_t0_tot = sum(na.omit(fa_t0)),
       fa_bau_diff = (sum(na.omit(fa_bau)) - sum(na.omit(fa_t0))) / sum(na.omit(fa_t0)),
       fa_pr_diff = (sum(na.omit(fa_pr))- sum(na.omit(fa_t0))) / sum(na.omit(fa_t0)),
@@ -176,21 +180,29 @@ h4.date { /* Header 4 - and the author and data headers use this too  */
 </style>
 
 
-## H2 Header
+## Diagnostico
 
-Some body text
+### Amapa
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-## plots
+## prepare plots
 sfap <- st_union(st_buffer(sint2, 0.00001))
 sfapn3 <-st_intersection(s4, sfap)
 library(ggplot2)
+library(magrittr)
 #Ottobacias. Need to drop to make sure match data
 selOt <- which(sint2$NIVEL33 %in% unique(dfn3$NIVEL33))
+sint_df <- sint2 %>% st_set_geometry(NULL)
+selOt2 <- which(sint_df$NIVEL33 %in% unique(dfn3$NIVEL33))
+n_otto3 <- length(unique(sint_df[selOt2, 'NIVEL33']))
+n_muni3 <- length(unique(sint_df[selOt2, 'NOME_MUNI']))
 
 ```
 
-```{r, echo=FALSE}
-ggplot(sint2[selOt, ]) +
+ Existem `r n_otto3` ottobacias classificado no nivel 3 em Amapa. Incluindo ottobacias com fronteiras internacionais (Rio Oiapoque com Guiana Francesa) e nacionais (Rio Jari com Estado de Para). Sao `r n_muni3` municipios no Estado de Amapa.
+
+```{r fig1, fig.width=10, fig.height=5, fig.fullwidth=TRUE, echo=FALSE, fig.cap="\\label{fig:fig1}Figura 1: Localização de A) Ottobacias e B) Municipios no Estado de Amapa." }
+library(gridExtra)
+gg1 <- ggplot(sint2[selOt, ]) +
   #geom_sf(data = sfcounD) +
   geom_sf(aes(fill = NIVEL33) ) +
   geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
@@ -204,14 +216,183 @@ ggplot(sint2[selOt, ]) +
   theme_bw() +
   theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
   ggtitle("A) Ottobacias")
+
+gg2 <- ggplot(sint2[selOt, ]) +
+  #geom_sf(data = sfcounD) +
+  geom_sf(aes(fill = NOME_MUNI) ) +
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
+  geom_sf(data = sfap, size=1,color="black", fill=NA) +
+  #geom_sf(data = sfap, size=1,color="yellow", fill=NA, lty=2) +
+  scale_fill_discrete("Municipio") +
+  coord_sf(xlim = c(-54.8, -49.8), ylim = c(-1.2, 4.3))+
+  #scale_x_continuous(breaks = xbr) +
+  #scale_y_continuous(breaks = ybr) +
+  theme_bw() +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ggtitle("B) Municipios")
+lay <- rbind(c(NA,2),
+             c(NA,2),
+               c(1,2),
+               c(1,2), 
+             c(1,2),
+             c(1,2),
+               c(1,2),
+               c(1,2), 
+             c(1,2),
+               c(1,2),
+               c(1,2), 
+             c(1,2), 
+               c(1,2),
+               c(1,2), 
+             c(1,2),
+               c(NA,2),
+               c(NA,2))
+#gridExtra::grid.arrange(gg1, gg2, nrow=1)
+gridExtra::grid.arrange(gg1, gg2, layout_matrix = lay)
+
 ```
 
 
-## H2 Header
 
-More body text
 
-## R Markdown
+A maioria das ottobacias tem porcentagem alto de rios com uma grau de proteçao (federal, estdual ou terras indigenios). Mas, grande porcentagen de rios sao accessiveis (menos de 49 km ate ponto com densidade humano > 3 pessoas por kilometro).
+
+```{r fig2, fig.width=10, fig.height=5, fig.fullwidth=TRUE, echo=FALSE, fig.cap="\\label{fig:fig2}Figura 2: Proteçao (A) e acessibilidade (B) nos rios em Ottobacias no Estado de Amapa." }
+library(gridExtra)
+gg3 <- ggplot(sint2[selOt, ]) +
+  #geom_sf(data = sfcounD) +
+  geom_sf(aes(fill = pa_per) ) +
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
+  geom_sf(data = sfap, size=1,color="black", fill=NA) +
+  scale_fill_gradientn("%\nProteçao", 
+                       colours = c("darkred","tomato1", 
+                                   "orange","yellow", 
+                                   "lightblue","darkblue"), 
+                       values = c(0, 0.11, 0.111, 0.54,0.541, 1)) +
+  coord_sf(xlim = c(-54.8, -49.8), ylim = c(-1.2, 4.3))+
+  theme_bw() +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ggtitle("A) Proteçao por Ottobacia")
+
+gg4 <- ggplot(sint2[selOt, ]) +
+  #geom_sf(data = sfcounD) +
+  geom_sf(aes(fill = acc_per) ) +
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
+  geom_sf(data = sfap, size=1,color="black", fill=NA) +
+  #geom_sf(data = sfap, size=1,color="yellow", fill=NA, lty=2) +
+  scale_fill_gradient("%\nAccesso", low = "yellow", high = "firebrick") +
+  coord_sf(xlim = c(-54.8, -49.8), ylim = c(-1.2, 4.3))+
+  theme_bw() +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ggtitle("B) Accesso por Ottobacia")
+lay <- rbind(c(1,2),
+             c(1,2)
+               )
+
+gridExtra::grid.arrange(gg3, gg4, layout_matrix = lay)
+
+```
+
+### Tracaja
+
+Com base na grau de proteçao e accessibilidade podemos projetar impactos sobre populacoes de Podocnemis unifilis (Norris et al 2018). Assim sendo, uma comparaçao entre scenarios differentes gerar informacoes sobre onde (quais Ottobacias) populacoes de tracajas serao mais provaveis de persistir.
+
+```{r fig3, fig.width=10, fig.height=5, fig.fullwidth=TRUE, echo=FALSE, fig.cap="\\label{fig:fig3}Figura 3: Projecoes futuros de populacoes de tracajas em Ottobacias no Estado de Amapa. Os valores positivos e negativos do eixo y indicam aumentos e quedas da população respectivamente, durante 50 anos,  e 0,5 e -0,5 representam o dobro da população ou reduçao para a metade, respectivamente. Valor de 0.0 mostra uma população estável." }
+library(gridExtra)
+gg5 <- ggplot(sint2) +
+  #geom_sf(data = sfcounD) +
+  geom_sf(aes(fill = fa_bau_diff) ) +
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
+  geom_sf(data = sfap, size=1,color="black", fill=NA) +
+  scale_fill_gradient2("%\nchange") +
+  coord_sf(xlim = c(-54.8, -49.8), ylim = c(-1.2, 4.3))+
+  theme_bw() +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ggtitle("A) Business-As-Usual\n ")
+
+gg6 <- ggplot(dfn3, aes(x = NIVEL33, y = fa_bau_diff, fill = fa_bau_diff)) + 
+  geom_col() + 
+  coord_cartesian(ylim = c(-1,2)) +
+  scale_fill_gradient2("%\nchange") +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ylab("Taxa de Mudança") + xlab("Ottobacia")
+
+gg7 <- ggplot(sint2) +
+  #geom_sf(data = sfcounD) +
+  geom_sf(aes(fill = fa_pr_diff) ) +
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
+  geom_sf(data = sfap, size=1,color="black", fill=NA) +
+  scale_fill_gradient2("%\nchange") +
+  coord_sf(xlim = c(-54.8, -49.8), ylim = c(-1.2, 4.3))+
+  #scale_x_continuous(breaks = xbr) +
+  #scale_y_continuous(breaks = ybr) +
+  theme_bw() +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ggtitle("B) Protection\n ")
+
+gg8 <- ggplot(dfn3, aes(x = NIVEL33, y = fa_pr_diff, fill = fa_pr_diff)) + 
+  geom_col() + 
+  coord_cartesian(ylim = c(-1,2)) +
+  scale_fill_gradient2("%\nchange") +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ylab("Taxa de Mudança") + xlab("Ottobacia")
+
+# CBM
+gg9 <- ggplot(sint2) +
+  #geom_sf(data = sfcounD) +
+  geom_sf(aes(fill = fa_cbm_diff) ) +
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
+  geom_sf(data = sfap, size=1,color="black", fill=NA) +
+  scale_fill_gradient2("%\nchange") +
+  coord_sf(xlim = c(-54.8, -49.8), ylim = c(-1.2, 4.3))+
+  #scale_x_continuous(breaks = xbr) +
+  #scale_y_continuous(breaks = ybr) +
+  theme_bw() +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ggtitle("C) Community-Based\nManagement")
+
+gg10 <- ggplot(dfn3, aes(x = NIVEL33, y = fa_cbm_diff, fill = fa_cbm_diff)) + 
+  geom_col() + 
+  coord_cartesian(ylim = c(-1,2)) +
+  scale_fill_gradient2("%\nchange") +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ylab("Taxa de Mudança") + xlab("Ottobacia")
+
+# CBM and Protection
+gg11 <- ggplot(sint2) +
+  #geom_sf(data = sfcounD) +
+  geom_sf(aes(fill = fa_cbmpr_diff) ) +
+  geom_sf(data = sfapn3, size= 0.8, color="grey30", fill=NA) +
+  geom_sf(data = sfapn3, size=0.3,color="white", fill=NA, lty=2) +
+  geom_sf(data = sfap, size=1,color="black", fill=NA) +
+  scale_fill_gradient2("%\nchange") +
+  coord_sf(xlim = c(-54.8, -49.8), ylim = c(-1.2, 4.3))+
+  #scale_x_continuous(breaks = xbr) +
+  #scale_y_continuous(breaks = ybr) +
+  theme_bw() +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ggtitle("D) Community-Based\nManagement Protection")
+
+gg12 <- ggplot(dfn3, aes(x = NIVEL33, y = fa_cbmpr_diff, fill = fa_cbmpr_diff)) + 
+  geom_col() + 
+  coord_cartesian(ylim = c(-1,2)) +
+  scale_fill_gradient2("%\nchange") +
+  theme(legend.margin=margin(t=0, r=0, b=0, l= -0.2, unit="cm")) +
+  ylab("Taxa de Mudança") + xlab("Ottobacia")
+
+lay <- rbind(c(1,3,5,7),
+             c(2,4,6,8)
+               )
+
+gridExtra::grid.arrange(gg5, gg6, gg7, gg8, gg9, gg10, gg11, gg12, layout_matrix = lay)
+
+```
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
