@@ -1201,3 +1201,154 @@ ggplot(sint2) +
 ggplot(dfn3, aes(x = NIVEL33, y = fa_cbmpr_diff, fill = fa_cbmpr_diff)) + 
   geom_col() + 
   scale_fill_gradient2("%\nchange")
+
+#### 02/02/2019 ICMBio PQA data Sisquelonios
+library(readxl)
+# areas
+aea <- read_excel("inst/icmbio/informacoes_aea_cercada_sisquelonios_22_11_2018.xlsx")
+aea$dec <- aea$Ano - (aea$Ano %% 10)
+
+# nests
+nin <- read_excel("inst/icmbio/informacoes_ninhos_sisquelonios_22_11_2018dn.xlsx")
+nin$dec <- nin$Ano - (nin$Ano %% 10)
+nin <- data.frame(nin)
+# individuals
+nii <- read_excel("inst/icmbio/informacoes_individuo_sisquelonios_22_11_2018dn.xlsx")
+nii <- data.frame(nii)
+
+table(nii$Sexo.Fase)
+selF <- which(nii$Sexo.Fase == "Femea adulta")
+niif <- nii[selF, ]
+
+fm <- merge(niif, nin, all.x=TRUE, by="ID.Ninho")
+fm$peso_trat <- ifelse(fm$Peso < 50, fm$Peso * 1000, fm$Peso)
+summary(fm$peso_trat)
+selff <- which(fm$peso_trat < 10000)
+ggplot(fm, aes(peso_trat, Comprimento.carapaça, col = (Qtd.Total.Ovos))) + 
+  geom_point()
+selo <- which(fm$Comprimento.carapaça > 40 & fm$peso_trat <10000)
+fmgood <- fm[-selo, ]
+selna <- which(is.na(fmgood$Qtd.Total.Ovos))
+
+ggplot(fmgood, aes(peso_trat, Comprimento.carapaça)) + 
+  geom_point() + stat_smooth() + 
+    geom_point(data = fmgood[-selna, ], aes(col = (Qtd.Total.Ovos)))
+
+library(ggplot2)
+ggplot(fmgood, aes(peso_trat, Qtd.Total.Ovos)) + 
+  geom_point(aes(col = factor(Estado))) + 
+  stat_smooth()
+  stat_smooth(method = "lm")
+
+ 
+
+# Spatial check. Coordinates not consistent.
+library(sf)
+selNA <- which(is.na(aea$Longitude) & is.na(aea$Latitude))
+aea.sf <- st_as_sf(x = aea[-selNA, ], 
+                        coords = c("Longitude", "Latitude"),
+                        crs = "+proj=longlat +datum=WGS84")
+
+which(is.na(nin$Longitude) & is.na(nin$Latitude))
+nin.sf <- st_as_sf(x = nin, 
+                   coords = c("Longitude", "Latitude"),
+                   crs = "+proj=longlat +datum=WGS84")
+
+library(ggplot2)
+ggplot() + 
+  geom_sf(data = aea.sf, 
+          aes(col = factor(dec), fill = factor(dec))) + 
+  facet_wrap(~Espécie)
+
+# Amapa
+inshp2 <- system.file("shape/ap_municipios.shp" ,package = "sacr")
+s2 <- read_sf(inshp2)
+sfap <- st_union(st_buffer(s2, 0.00001))
+sint <- st_intersection(aea.sf, s2)
+sint[which(sint$Espécie == "Podocnemis expansa" & sint$dec == 1980), ]
+
+#nests in Amapa
+n.int <- st_intersection(nin.sf, s2)
+
+# Nesting areas - location errors
+selpe <- which(sint$Espécie == "Podocnemis expansa")
+# Expansa
+ggplot(sint[selpe, ]) + 
+  geom_sf(aes(col = factor(dec), fill = factor(dec))) +
+  geom_sf(data = sfap, col = "black", fill=NA) 
+#Unifilis
+ggplot(sint[-selpe, ]) + 
+  geom_sf(aes(col = factor(dec), fill = factor(dec))) +
+  geom_sf(data = sfap, col = "black", fill=NA) 
+  
+library(mapview)
+#expansa
+mapview(sint[selpe, ], zcol = "dec")
+#unifilis
+mapview(sint[-selpe, ], zcol = "dec")
+
+# Nest-sites - location errors
+selpen <- which(n.int$Espécie == "Podocnemis expansa")
+# Expansa
+ggplot(n.int[selpen, ]) + 
+  geom_sf(aes(col = factor(dec), fill = factor(dec))) +
+  geom_sf(data = sfap, col = "black", fill=NA) 
+#Unifilis
+ggplot(n.int[-selpen, ]) + 
+  geom_sf(aes(col = factor(dec), fill = factor(dec))) +
+  geom_sf(data = sfap, col = "black", fill=NA) 
+
+#expansa
+mapview(n.int[selpen, ], zcol = "dec")
+#unifilis
+mapview(sint[-selpe, ], zcol = "dec")
+
+# table by municipality
+table(aea$Estado)
+selE <- which(aea$Estado=="AMAPA")
+aea.ap <- aea[selE, ] # 253 Difference due to areas in the delta
+# make valid column names for plyr
+aea.ap <- data.frame(aea.ap)
+aea.ap.sf <- st_as_sf(x = aea.ap, 
+                   coords = c("Longitude", "Latitude"),
+                   crs = "+proj=longlat +datum=WGS84")
+mapview(aea.ap.sf, zcol = "dec")
+
+library(plyr)
+dfan <- ddply(aea.ap, .(Estado,  Espécie, Munícipio, dec), summarize, 
+      ano_min = min(na.omit(Ano)), 
+      ano_max = max(na.omit(Ano)),
+      area_cerc = length(unique(na.omit(Localidade))),
+      n_tot = sum(na.omit(Qtd.Ninhos)),
+      n_mean = round(mean(na.omit(Qtd.Ninhos)),1),
+      n_min = min(na.omit(Qtd.Ninhos)),
+      n_max = max(na.omit(Qtd.Ninhos))
+      )
+#plot
+library(ggplot2)
+ggplot(dfan, aes(Munícipio, n_tot)) + 
+  geom_col(aes(fill = area_cerc)) +
+  facet_grid(dec ~ Espécie, scales ="free_x") +
+  #facet_grid(dec ~ Espécie, scales ="free_y") + 
+  ylab("Total Ninhos por Decada") + 
+  scale_fill_continuous("Áreas\nmonitoradas") +
+  theme(axis.text.x = element_text(angle = 45, 
+                                   vjust = 1, hjust=1))
+
+selEn <- which(nin$Estado=="AMAPA")
+nin.ap <- nin[selEn, ] # 253 Difference due to areas in the delta
+# make valid column names for plyr
+nin.ap <- data.frame(nin.ap)
+names(nin.ap)
+library(plyr)
+# just in 1980
+ ddply(nin.ap, .(Estado,  Espécie, Município, dec), summarize, 
+              ano_min = min(na.omit(Ano)), 
+              ano_max = max(na.omit(Ano)),
+              area_cerc = length(unique(na.omit(Localidade))),
+              n_tot = sum(na.omit(Nº.do.ninho_trat)),
+              n_mean = round(mean(na.omit(Nº.do.ninho_trat)),1),
+              n_min = min(na.omit(Nº.do.ninho_trat)),
+              n_max = max(na.omit(Nº.do.ninho_trat))
+)
+ 

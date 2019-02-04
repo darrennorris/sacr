@@ -1,9 +1,11 @@
 ---
 title: "Turtle Action Plan"
-subtitle: <h1>V 0.1<h1>
-author: Dr. Darren Norris (<dnorris75@gmail.com>)
+author: "Dr. Darren Norris (<dnorris75@gmail.com>)"
 date: "2 de janeiro de 2019"
-output: html_document 
+output:
+  word_document: default
+  html_document: default
+subtitle: <h1>V 0.1<h1>
 fig_caption: yes
 ---
 
@@ -296,11 +298,51 @@ gridExtra::grid.arrange(gg3, gg4, layout_matrix = lay)
 
 ```
 
-### Tracaja
+### Tartarugas e Tracajas em Amapá
 
-Com base na grau de proteçao e accessibilidade podemos projetar impactos sobre populacoes de Podocnemis unifilis (Norris et al 2018). Assim sendo, uma comparaçao entre scenarios differentes gerar informacoes sobre onde (quais Ottobacias) populacoes de tracajas serao mais provaveis de persistir.
+Desde PQA estar atuando no Estado de Amapa, com acoes de conservaçao focados em 2 espécies alvo: tartaruga-da-amazônia (Podocnemis expansa) e tracajá (Podocnemis unifilis). Mas na decada de 2010 (2010 - 2017) houve uma diminuição expressiva na açoes de conservação com uma redução em o numero de areas  e numero de ninhos  monitoradas (Figura 3). 
 
-```{r fig3, fig.width=10, fig.height=5, fig.fullwidth=TRUE, echo=FALSE, fig.cap="\\label{fig:fig3}Figura 3: Projecoes futuros de populacoes de tracajas em Ottobacias no Estado de Amapa. Os valores positivos e negativos do eixo y indicam aumentos e quedas da população respectivamente, durante 50 anos,  e 0,5 e -0,5 representam o dobro da população ou reduçao para a metade, respectivamente. Valor de 0.0 mostra uma população estável." }
+```{r fig3, fig.width=10, fig.height=6, fig.fullwidth=TRUE, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="\\label{fig:fig3}Figura 3: Ninhos monitorados por decada no Estado de Amapa pela PQA. Fonte de dados: SisQuelônios 2018" }
+
+library(readxl)
+# areas
+inexcel <- system.file("icmbio/informacoes_aea_cercada_sisquelonios_22_11_2018.xlsx" ,package = "sacr")
+aea <- read_excel(inexcel)
+aea$dec <- aea$Ano - (aea$Ano %% 10)
+selE <- which(aea$Estado=="AMAPA")
+aea.ap <- aea[selE, ] # 253 Difference due to areas in the delta
+# make valid column names for plyr
+aea.ap <- data.frame(aea.ap)
+
+library(plyr)
+dfan <- ddply(aea.ap, .(Estado,  Espécie, Munícipio, dec), summarize, 
+      ano_min = min(na.omit(Ano)), 
+      ano_max = max(na.omit(Ano)),
+      area_cerc = length(unique(na.omit(Localidade))),
+      n_tot = sum(na.omit(Qtd.Ninhos)),
+      n_mean = round(mean(na.omit(Qtd.Ninhos)),1),
+      n_min = min(na.omit(Qtd.Ninhos)),
+      n_max = max(na.omit(Qtd.Ninhos))
+      )
+#plot
+library(ggplot2)
+ggplot(dfan, aes(Munícipio, n_tot)) + 
+  geom_col(aes(fill = area_cerc)) +
+  facet_grid(dec ~ Espécie, scales ="free_x") +
+  #facet_grid(dec ~ Espécie, scales ="free_y") + 
+  ylab("Total Ninhos por Decada") + 
+  scale_fill_continuous("Áreas\nmonitoradas") +
+  theme(axis.text.x = element_text(angle = 45, 
+                                   vjust = 1, hjust=1))
+
+```
+
+
+### Tracajas: o futuro
+
+Com base na grau de proteçao e accessibilidade podemos projetar impactos sobre populacoes de Podocnemis unifilis (Norris et al 2018). Assim sendo, uma comparaçao entre scenarios differentes gerar informacoes sobre onde (quais Ottobacias e quais munícipios) populacoes de tracajas serao mais provaveis de persistir durante 50 anos.
+
+```{r fig4, fig.width=10, fig.height=5, fig.fullwidth=TRUE, echo=FALSE, fig.cap="\\label{fig:fig4}Figura 4: Projecoes futuros de populacoes de tracajas em Ottobacias no Estado de Amapa. Os valores positivos e negativos do eixo y indicam aumentos e quedas da população respectivamente, durante 50 anos,  e 0,5 e -0,5 representam o dobro da população ou reduçao para a metade, respectivamente. Valor de 0.0 mostra uma população estável." }
 library(gridExtra)
 gg5 <- ggplot(sint2) +
   #geom_sf(data = sfcounD) +
