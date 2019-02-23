@@ -1352,3 +1352,125 @@ library(plyr)
               n_max = max(na.omit(Nº.do.ninho_trat))
 )
  
+ ## 20/02 - tables
+ library(knitr)
+ library(kableExtra)
+ dt <- mtcars[1:5, 1:6]
+ rstudio::view(kable(dt, format = c("html")))
+ 
+ # jon summaries
+ sint2 <- readRDS("C:/Users/Darren/Documents/ms/2019 Unifilis demography/sacr/inst/other/sint2.RDS")
+sint_df <-  readRDS("C:/Users/Darren/Documents/ms/2019 Unifilis demography/sacr/inst/other/sint_df.RDS")
+library(plyr)
+plyr::ddply(sint_df, .(NOME_MUNI, MUNI, fa_bau_diff), summarise, 
+            tot_n = length(pa_per), 
+            tot_ott = length(NIVEL33), 
+            ott_uni = length(unique(na.omit(NIVEL33))), 
+            km_sum = sum(km_tot),
+            km_mean = round(mean(km_tot),1), 
+            km_min = min(km_tot), 
+            km_max = max(km_tot)
+)
+
+dt <- plyr::ddply(sint_df, .(NOME_MUNI, MUNI, NIVEL33, Area, 
+                             fa_bau_diff, pa_per, acc_per), summarise, 
+            tot_n = length(pa_per), 
+            km_sum = sum(km_tot),
+            km_mean = round(mean(km_tot),1), 
+            km_min = min(km_tot), 
+            km_max = max(km_tot)
+)
+wm <- function(x){
+  wmo <- weighted.mean(x$fa_bau_diff, x$km_max)
+  acc <- weighted.mean(x$acc_per, x$km_max)
+  pa <- weighted.mean(x$pa_per, x$km_max)
+  dfout <- data.frame(wm_pa_per = pa, wm_acc_per = acc, wm_fa_bau_diff = wmo)
+  dfout
+}
+dtt <- merge(plyr::ddply(dt, .(NOME_MUNI, MUNI, Area), .fun = wm), 
+             plyr::ddply(dt, .(NOME_MUNI, MUNI, Area), summarize, 
+                         tot_km = sum(km_max), 
+                         tot_ott = length(unique(na.omit(NIVEL33)))) 
+)
+
+dtt$'Munícipio' <- toupper(dtt$NOME_MUNI)
+# need to get update area for all municipalities
+dtt$Area_km <- dtt$Area/100
+# IBGE 2010
+#ibgef <- "C:/Users/Darren/Documents/ms/2019 Unifilis demography/sacr/inst/ibge/0000000400dn.xlsx"
+library(readxl)
+aea <- read_excel("inst/ibge/0000000400dn.xlsx")
+aea.ap <- aea[which(aea$uf=="AP"), ]
+aea.ap[10, 'municipios'] <- "Pedra Branca do Amaparí"
+dtt <- merge(dtt, aea.ap, all.x = TRUE, by.x = c("NOME_MUNI") , by.y = c("municipios"))
+
+# merge with PQA summary
+library(readxl)
+# areas
+inexcel <- system.file("icmbio/informacoes_aea_cercada_sisquelonios_22_11_2018.xlsx" ,package = "sacr")
+aea <- read_excel(inexcel)
+aea$dec <- aea$Ano - (aea$Ano %% 10)
+selE <- which(aea$Estado=="AMAPA")
+aea.ap <- aea[selE, ] # 253 Difference due to areas in the delta
+# make valid column names for plyr
+aea.ap <- data.frame(aea.ap)
+
+dfan <- ddply(aea.ap, .(Estado,  Espécie, dec, Munícipio), summarize, 
+              ano_tot = length(unique(na.omit(Ano))),
+              ano_min = min(na.omit(Ano)), 
+              ano_max = max(na.omit(Ano)),
+              area_cerc = length(unique(na.omit(Localidade))),
+              n_tot = sum(na.omit(Qtd.Ninhos)),
+              n_mean = round(mean(na.omit(Qtd.Ninhos)),1),
+              n_min = min(na.omit(Qtd.Ninhos)),
+              n_max = max(na.omit(Qtd.Ninhos))
+)
+
+#seldecpe <- which(dfan$dec==2010 & dfan$'Espécie'=="Podocnemis expansa")
+#dtt2 <- merge(dtt, dfan[seldecpe, ], all.x = TRUE)
+seldecpu <- which(dfan$dec==2010 & dfan$'Espécie'=="Podocnemis unifilis")
+# need to correct names manually for join
+dfan[seldecpu, "Munícipio"] <- c("CALÇOENE", "OIAPOQUE", "PORTO GRANDE", "PRACUÚBA", "TARTARUGALZINHO")
+dtt2 <- merge(dtt, dfan[seldecpu, ], all.x = TRUE, by = c("Munícipio"))
+
+#sort and selct columns for final table
+df <- dtt2[order(dtt2$wm_fa_bau_diff), ]
+colsout <- c("NOME_MUNI", "area_tot","pop_tot", "densidade", "urbana_perc",  
+             "tot_ott", "tot_km", "wm_pa_per", "wm_acc_per", "wm_fa_bau_diff", 
+             "dec", "ano_tot", "ano_min", "ano_max", "area_cerc", "n_tot", "n_mean", 
+             "n_min", "n_max")
+df2 <- df[, colsout]
+df2$wm_fa_bau_diff <- df2$wm_fa_bau_diff * 100
+iucn <- df2$wm_fa_bau_diff
+# need to check for when is near threatened
+selnt <- which(df2$wm_fa_bau_diff <= 0)
+iucn[selnt] <- 0
+selvu <- which(df2$wm_fa_bau_diff <= -30)
+iucn[selvu] <- -30
+selen <- which(df2$wm_fa_bau_diff <= -50)
+iucn[selen] <- -50
+selcr <- which(df2$wm_fa_bau_diff <= -80)
+iucn[selcr] <- -80
+iucn <- factor(iucn)
+levels(iucn) <- c("Critically Endangered", "Endangered", "Vulnerable", "Near Threatened")
+
+colsoutk <- c("", "Area (km2)","Pop. Tot.", "Pop. Dens.", "Urbana (%)",  
+              "Ott.", "Rio (km)", "AP (%)", "Access. (%)", "Diff. (%)", 
+              "Dec.", "Anos", "Primeiro\nAno", "Ultimo\nAno", 
+              "Areas\ncercadas", "Total ninhos", "Media ninhos", 
+              "Min ninhos", "Max ninhos")
+
+df2$wm_fa_bau_diff <- cell_spec(df2$wm_fa_bau_diff, color = "white", align = "c", angle = 45, 
+                background = factor(df2$wm_fa_bau_diff))
+#usefull guide: http://research.stowers.org/mcm/efg/R/Color/Chart/                               #background = iucn, c("#666666", "#999999", "#BBBBBB", "#666666"))
+library(kableExtra)
+options(knitr.kable.NA = '')
+kable(df2, digits = 1, row.names = FALSE, 
+      #format.args = list(decimal.mark = ",", big.mark = "."), # makes date wrong
+      format.args = list(decimal.mark = ",", big.mark = ""),
+      caption = "Tabela 2: Atuação de PQA no Estado de Amapa", 
+      col.names = colsoutk) %>%
+  kable_styling(bootstrap_options = c("condensed", "responsive"),
+                position = "left") %>%
+  add_header_above(c(" " = 1, "IBGE 2010" = 4, "Tracajas" = 5, "PQA" = 9), 
+                   bold = TRUE)

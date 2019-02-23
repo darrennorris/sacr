@@ -3,8 +3,8 @@ title: "Turtle Action Plan"
 author: "Dr. Darren Norris (<dnorris75@gmail.com>)"
 date: "2 de janeiro de 2019"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 subtitle: <h1>V 0.1<h1>
 fig_caption: yes
 ---
@@ -152,7 +152,7 @@ dfn3 <- ddply(s1, .(NIVEL33), summarise,
 )
 
 sint2 <- merge(sint, dfn3)
-
+saveRDS(sint2, "C:/Users/Darren/Documents/ms/2019 Unifilis demography/sacr/inst/other/sint2.RDS")
 ```
 
 <style type="text/css">
@@ -197,6 +197,7 @@ sint_df <- sint2 %>% st_set_geometry(NULL)
 selOt2 <- which(sint_df$NIVEL33 %in% unique(dfn3$NIVEL33))
 n_otto3 <- length(unique(sint_df[selOt2, 'NIVEL33']))
 n_muni3 <- length(unique(sint_df[selOt2, 'NOME_MUNI']))
+saveRDS(sint_df[selOt2, ], "C:/Users/Darren/Documents/ms/2019 Unifilis demography/sacr/inst/other/sint_df.RDS")
 
 ```
 
@@ -299,11 +300,7 @@ gridExtra::grid.arrange(gg3, gg4, layout_matrix = lay)
 ```
 
 ### Tartarugas e Tracajas em Amapá
-
-Desde PQA estar atuando no Estado de Amapa, com acoes de conservaçao focados em 2 espécies alvo: tartaruga-da-amazônia (Podocnemis expansa) e tracajá (Podocnemis unifilis). Mas na decada de 2010 (2010 - 2017) houve uma diminuição expressiva na açoes de conservação com uma redução em o numero de areas  e numero de ninhos  monitoradas (Figura 3). 
-
-```{r fig3, fig.width=10, fig.height=6, fig.fullwidth=TRUE, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="\\label{fig:fig3}Figura 3: Ninhos monitorados por decada no Estado de Amapa pela PQA. Fonte de dados: SisQuelônios 2018" }
-
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 library(readxl)
 # areas
 inexcel <- system.file("icmbio/informacoes_aea_cercada_sisquelonios_22_11_2018.xlsx" ,package = "sacr")
@@ -314,8 +311,17 @@ aea.ap <- aea[selE, ] # 253 Difference due to areas in the delta
 # make valid column names for plyr
 aea.ap <- data.frame(aea.ap)
 
+ymin <- min(na.omit(aea.ap$Ano))
+
+```
+
+Desde `r ymin` PQA estar atuando no Estado de Amapa, com acoes de conservaçao focados em 2 espécies alvo: tartaruga-da-amazônia (Podocnemis expansa) e tracajá (Podocnemis unifilis). Houve uma varição expressiva na atuação entre decadas e municipios no Estado de Amapa (Figura 3, Tabela 1). E na decada de 2010 (2010 - 2017) houve uma redução expressiva em o numero de ninhos  monitoradas comparados com os monitorados nas decadas anteriores (Figura 3). 
+
+```{r fig3, fig.width=10, fig.height=6, fig.fullwidth=TRUE, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="\\label{fig:fig3}Figura 3: Ninhos monitorados por decada no Estado de Amapa pela PQA. Fonte de dados: SisQuelônios 2018" }
+
 library(plyr)
-dfan <- ddply(aea.ap, .(Estado,  Espécie, Munícipio, dec), summarize, 
+dfan <- ddply(aea.ap, .(Estado,  Espécie, dec, Munícipio), summarize, 
+      ano_tot = length(unique(na.omit(Ano))),
       ano_min = min(na.omit(Ano)), 
       ano_max = max(na.omit(Ano)),
       area_cerc = length(unique(na.omit(Localidade))),
@@ -338,11 +344,24 @@ ggplot(dfan, aes(Munícipio, n_tot)) +
 ```
 
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(kableExtra)
+  kable(dfan, 
+       caption = "Tabela 1: Atuação de PQA no Estado de Amapa. Fonte de dados: SisQuelônios 2018", 
+       col.names = c("Estado",  "Espécie", "Decada", "Munícipio", 
+                     "Anos", "Primeiro\nAno", "Ultimo\nAno", 
+                     "Areas", "Total ninhos", "Media ninhos", 
+                     "Min ninhos", "Max ninhos")) %>%
+   kable_styling(full_width = F, position = "left") %>% 
+ collapse_rows(columns = 1:3, valign = "top")
+```
+
+
 ### Tracajas: o futuro
 
-Com base na grau de proteçao e accessibilidade podemos projetar impactos sobre populacoes de Podocnemis unifilis (Norris et al 2018). Assim sendo, uma comparaçao entre scenarios differentes gerar informacoes sobre onde (quais Ottobacias e quais munícipios) populacoes de tracajas serao mais provaveis de persistir durante 50 anos.
+Com base na grau de proteçao e accessibilidade podemos projetar impactos sobre populacoes futuros de Podocnemis unifilis (Norris et al 2018). Assim sendo, uma comparaçao entre scenarios differentes gerar informacoes sobre onde (quais Ottobacias e quais munícipios) populacoes de tracajas serao mais provaveis de persistir durante 50 anos.
 
-```{r fig4, fig.width=10, fig.height=5, fig.fullwidth=TRUE, echo=FALSE, fig.cap="\\label{fig:fig4}Figura 4: Projecoes futuros de populacoes de tracajas em Ottobacias no Estado de Amapa. Os valores positivos e negativos do eixo y indicam aumentos e quedas da população respectivamente, durante 50 anos,  e 0,5 e -0,5 representam o dobro da população ou reduçao para a metade, respectivamente. Valor de 0.0 mostra uma população estável." }
+```{r fig4, fig.width=10, fig.height=5, fig.fullwidth=TRUE, echo=FALSE, fig.cap="\\label{fig:fig4}Figura 4: Projecoes futuros de populacoes de tracajas em Ottobacias no Estado de Amapa. Os valores positivos e negativos do eixo y indicam aumentos e quedas da população respectivamente, durante 50 anos,  e 0,5 e -0,5 representam um dobro na população ou reduçao para a metade, respectivamente. Valor de 0.0 mostra uma população estável." }
 library(gridExtra)
 gg5 <- ggplot(sint2) +
   #geom_sf(data = sfcounD) +
@@ -436,20 +455,138 @@ gridExtra::grid.arrange(gg5, gg6, gg7, gg8, gg9, gg10, gg11, gg12, layout_matrix
 
 ```
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Podemos avaliar quais municípios devem ser prioritarios para acoes de consevaçao.
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# block to make data for table 3
+sint_df <-  readRDS("C:/Users/Darren/Documents/ms/2019 Unifilis demography/sacr/inst/other/sint_df.RDS")
+library(plyr)
+dt <- plyr::ddply(sint_df, .(NOME_MUNI, MUNI, NIVEL33, Area, 
+                             fa_bau_diff, pa_per, acc_per), summarise, 
+            tot_n = length(pa_per), 
+            km_sum = sum(km_tot),
+            km_mean = round(mean(km_tot),1), 
+            km_min = min(km_tot), 
+            km_max = max(km_tot)
+)
+wm <- function(x){
+  wmo <- weighted.mean(x$fa_bau_diff, x$km_max)
+  acc <- weighted.mean(x$acc_per, x$km_max)
+  pa <- weighted.mean(x$pa_per, x$km_max)
+  dfout <- data.frame(wm_pa_per = pa, wm_acc_per = acc, wm_fa_bau_diff = wmo)
+  dfout
+}
+dtt <- merge(plyr::ddply(dt, .(NOME_MUNI, MUNI, Area), .fun = wm), 
+             plyr::ddply(dt, .(NOME_MUNI, MUNI, Area), summarize, 
+                         tot_km = sum(km_max), 
+                         tot_ott = length(unique(na.omit(NIVEL33)))) 
+)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+dtt$'Munícipio' <- toupper(dtt$NOME_MUNI)
+# need to get update area for all municipalities
+dtt$Area_km <- dtt$Area/100
+# IBGE 2010
+#ibgef <- "C:/Users/Darren/Documents/ms/2019 Unifilis demography/sacr/inst/ibge/0000000400dn.xlsx"
 
-```{r cars}
-summary(cars)
+aea <- read_excel("C:/Users/Darren/Documents/ms/2019 Unifilis demography/sacr/inst/ibge/0000000400dn.xlsx")
+aea.ap <-aea[which(aea$uf=="AP"), ]
+aea.ap[10, 'municipios'] <- "Pedra Branca do Amaparí"
+dtt <- merge(dtt, aea.ap, all.x = TRUE, by.x = c("NOME_MUNI") , by.y = c("municipios"))
+
+# merge with PQA summary
+library(readxl)
+# areas
+inexcel <- system.file("icmbio/informacoes_aea_cercada_sisquelonios_22_11_2018.xlsx" ,package = "sacr")
+aea <- read_excel(inexcel)
+aea$dec <- aea$Ano - (aea$Ano %% 10)
+selE <- which(aea$Estado=="AMAPA")
+aea.ap <- aea[selE, ] # 253 Difference due to areas in the delta
+# make valid column names for plyr
+aea.ap <- data.frame(aea.ap)
+
+dfan <- ddply(aea.ap, .(Estado,  Espécie, dec, Munícipio), summarize, 
+              ano_tot = length(unique(na.omit(Ano))),
+              ano_min = min(na.omit(Ano)), 
+              ano_max = max(na.omit(Ano)),
+              area_cerc = length(unique(na.omit(Localidade))),
+              n_tot = sum(na.omit(Qtd.Ninhos)),
+              n_mean = round(mean(na.omit(Qtd.Ninhos)),1),
+              n_min = min(na.omit(Qtd.Ninhos)),
+              n_max = max(na.omit(Qtd.Ninhos))
+)
+
+#seldecpe <- which(dfan$dec==2010 & dfan$'Espécie'=="Podocnemis expansa")
+#dtt2 <- merge(dtt, dfan[seldecpe, ], all.x = TRUE)
+seldecpu <- which(dfan$dec==2010 & dfan$'Espécie'=="Podocnemis unifilis")
+# need to correct names manually for join
+dfan[seldecpu, "Munícipio"] <- c("CALÇOENE", "OIAPOQUE", "PORTO GRANDE", "PRACUÚBA", "TARTARUGALZINHO")
+dtt2 <- merge(dtt, dfan[seldecpu, ], all.x = TRUE, by = c("Munícipio"))
+
+#sort and selct columns for final table
+df <- dtt2[order(dtt2$wm_fa_bau_diff), ]
+colsout <- c("NOME_MUNI", "area_tot","pop_tot",  "densidade", "urbana_perc",
+             "tot_ott", "tot_km", "wm_pa_per", "wm_acc_per", "wm_fa_bau_diff", 
+             "ano_min", "ano_max", "ano_tot", "area_cerc", "n_tot", "n_mean", 
+             "n_min", "n_max")
+df2 <- df[, colsout]
+df2$wm_fa_bau_diff <- round(df2$wm_fa_bau_diff * 100,0)
+per_loss <- round((length(which(df2$wm_fa_bau_diff <= 0)) / nrow(df2)) * 100, 0)
+per_losst <- paste(per_loss, "%", sep = "")
+
+# threat status
+iucn <- df2$wm_fa_bau_diff
+# need to check for when is near threatened
+selnt <- which(df2$wm_fa_bau_diff <= 0)
+iucn[selnt] <- 0
+selvu <- which(df2$wm_fa_bau_diff <= -30)
+iucn[selvu] <- -30
+selen <- which(df2$wm_fa_bau_diff <= -50)
+iucn[selen] <- -50
+selcr <- which(df2$wm_fa_bau_diff <= -80)
+iucn[selcr] <- -80
+iucn <- factor(iucn)
+levels(iucn) <- c("Critically Endangered", "Endangered", "Vulnerable", "Near Threatened")
+
+selE <- which(iucn %in% c("Critically Endangered", "Endangered", "Vulnerable"))
+
+area_am <- sum(df2[selE, 'area_tot'])
+area_ap <- sum(df2$area_tot)
+area_per <- round((area_am / area_ap)*100,0)
+area_pert <- paste(area_per, "%", sep="")
+
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+Uma comparação entre projecoes futuros (50 anos) de populacoes de tracaja (Tabela 3), mostra que populacoes podem se consideradas ameacadas criticamente em `r length(which(iucn== "Critically Endangered"))` municipios (`r df2[which(iucn== "Critically Endangered"), 'NOME_MUNI']`). A previsao é que populacoes serao redizidas em `r per_losst` dos muncipios no Estado (Tabela 3).  Adotando uma classificação seguindo os critérios de redução do tamanho da população da IUCN A3bd (% redução projetada ao longo de três gerações) as tracajas sofrem ameaça de extinção em `r length(selE) ` municipios: `r sort(df2[selE, 'NOME_MUNI'])` (Tabela 3). Essas `r length(selE) ` municipios representem `r area_pert` da area do Estado de Amapa. 
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+Essa avaliaçao é precaucionária, porque ainda nao estao incluido na avaliaçao ameaças como hidroeletricas, desmatamento, e/ou mudanças climaticas. Ou seja, a grau de ameaça pode esta pior (mais severo) nos municipios onde ha registros de hidroeletricas e/ou desmatamento e/ou previsão de mudanças hidrologicas resultando por exemplo de futuros mudanças climaticas.    
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# make table 3
+#specify colours manually for now
+#usefull guide: http://research.stowers.org/mcm/efg/R/Color/Chart/
+# to plot nicely
+df2$ano_min <- as.character(df2$ano_min) 
+df2$ano_max <- as.character(df2$ano_max)
+mycol <- c(rep("white",5), rep("black", 11)) 
+bcol <- c(rep("darkred", 2), rep("red", 3), rep("orange", 7), rep("yellow", 4))
+df2$wm_fa_bau_diff <- cell_spec(df2$wm_fa_bau_diff, bold = T, color = mycol, 
+                                align = "c", background = bcol)
+colsoutk <- c("", "Area (km2)","Total", "Dens.", "Urbana %",  
+             "Ott.", "Rio (km)", "AP (%)", "Access. (%)", "Diff. (%)", 
+             "Inicio", "Final", "#", 
+                     "Areas\ncercadas", "Total", "Media", 
+                     "Min.", "Max.")
+options(knitr.kable.NA = '')
+kable(df2, digits = 1, row.names = FALSE, escape = FALSE,
+      format.args = list(decimal.mark = ",", big.mark = "."), 
+       caption = "Tabela 3: Municipios prioritarios para açao de conservaçao no Estado de Amapa", 
+      col.names = colsoutk) %>%
+   kable_styling(bootstrap_options = c("condensed", "responsive"),
+                 position = "left") %>%
+  add_header_above(c(" " = 2, "População" = 3, " " = 5, "Anos" = 3, " " = 1, "Ninhos" = 4)) %>% 
+  add_header_above(c(" " = 1, "IBGE 2010" = 4, "Tracajas" = 5, "PQA (2010 - 2017)" = 8), 
+                   bold = TRUE, color = c("", "black", "black", "black"))
+                 #bold = TRUE, color = c("", "black", "darkgrey", "black")) 
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
